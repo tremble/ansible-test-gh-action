@@ -152,13 +152,11 @@ outputs:
 runs:
   using: composite
   steps:
-  - name: Log the next step action
-    run: echo ▷ Figuring out the environment Python version...
-    shell: bash
   - name: Compute job Python version
     id: compute-origin-python-version
     run: |
       # Compute job Python version
+      print("::group::Figuring out the environment Python version")
       import os
       import pathlib
       import sys
@@ -221,14 +219,8 @@ runs:
 
       # Set computed origin-python-version
       set_output('origin-python-version', origin_python_version)
+      print("::endgroup::")
     shell: python
-  - name: Log the next step action
-    run: >-
-      echo ▷ Setting job Python to
-      ${{
-        steps.compute-origin-python-version.outputs.origin-python-version
-      }}...
-    shell: bash
   - name: >-
       Set controller Python to
       ${{ steps.compute-origin-python-version.outputs.origin-python-version }}
@@ -240,12 +232,10 @@ runs:
           steps.compute-origin-python-version.outputs.origin-python-version
         }}
 
-  - name: Log the next step action
-    run: >-
-      echo ▷ Install Python YAML library
-    shell: bash
   - name: Install PyYAML
     run: >-
+      echo "::group::Install Python YAML library"
+      ;
       set -x
       ;
       python -m
@@ -256,12 +246,10 @@ runs:
       --user
       ;
       set +x
+      ;
+      echo "::endgroup::"
     shell: bash
 
-  - name: Log the next step action
-    run: >-
-      echo ▷ Compose the ansible-test command line
-    shell: bash
   - name: Compose the ansible-test command line
     id: ansible-test-command
     env:
@@ -423,12 +411,6 @@ runs:
       set_output('has-change-detection', json.dumps(has_change_detection))
     shell: python
 
-  - name: Log the next step action
-    if: >-
-      !inputs.collection-src-directory
-    run: >-
-      echo ▷ Checking out the repository into a temporary location...
-    shell: bash
   - name: Check out the collection
     if: >-
       !inputs.collection-src-directory
@@ -443,41 +425,32 @@ runs:
           && '0' || '1'
         }}
 
-  - name: Log the next step action
-    if: >-
-      !inputs.collection-src-directory
-      && steps.ansible-test-command.outputs.has-change-detection == 'true'
-    run: >-
-      echo ▷ Create branches for change detection
-    shell: bash
   - name: Create branches for change detection
     if: >-
       !inputs.collection-src-directory
       && steps.ansible-test-command.outputs.has-change-detection == 'true'
-    run: |
-      # Create a branch for the current HEAD, which happens to be a merge commit
+    run: >-
+      echo "::group::Create branches for change detection"
+      ;
       git checkout -b 'pull-request-${{ github.event.pull_request.number }}'
-
-      # Name the target branch
+      ;
       git branch '${{
         github.event.pull_request.base.ref
       }}' --track 'origin/${{
         github.event.pull_request.base.ref
       }}'
-
-      # Show branch information
+      ;
       git branch -vv
+      ;
+      echo "::endgroup::"
     shell: bash
     working-directory: >-
       .tmp-ansible-collection-checkout
 
-  - name: Log the next step action
-    run: >-
-      echo ▷ Extracting the collection metadata from "'galaxy.yml'"...
-    shell: bash
   - name: Extract the collection metadata
     id: collection-metadata
     run: |
+      print("::group::Extracting the collection metadata from 'galaxy.yml'")
       import os
       import pathlib
       import yaml
@@ -528,20 +501,15 @@ runs:
           set_output(
               'checkout-path',
               os.path.join('ansible_collections', coll_ns, coll_name))
+      print("::endgroup::")
     shell: python
 
-  - name: Log the next step action
-    if: >-
-      ${{ fromJSON(steps.collection-metadata.outputs.copy-to-checkout-path) }}
-    run: >-
-      echo ▷ ${{ inputs.collection-src-directory && 'Copy' || 'Move' }}
-      "'${{ steps.collection-metadata.outputs.fqcn }}'"
-      collection to ${{ steps.collection-metadata.outputs.checkout-path }}...
-    shell: bash
   - name: Move the collection to the proper path
     if: >-
       ${{ fromJSON(steps.collection-metadata.outputs.copy-to-checkout-path) }}
     run: >-
+      echo "::group::${{ inputs.collection-src-directory && 'Copy' || 'Move' }} '${{ steps.collection-metadata.outputs.fqcn }}' collection to ${{ steps.collection-metadata.outputs.checkout-path }}"
+      ;
       set -x
       ;
       mkdir -pv
@@ -563,15 +531,14 @@ runs:
       "${{ steps.collection-metadata.outputs.checkout-path }}"
       ;
       set +x
+      ;
+      echo "::endgroup::"
     shell: bash
 
-  - name: Log the next step action
-    run: >-
-      echo ▷ Installing ansible-core
-      version ${{ inputs.ansible-core-version }}...
-    shell: bash
   - name: Install ansible-core (${{ inputs.ansible-core-version }})
     run: >-
+      echo "::group::Installing ansible-core version ${{ inputs.ansible-core-version }}"
+      ;
       set -x
       ;
       python -m pip install
@@ -584,13 +551,10 @@ runs:
       --user
       ;
       set +x
+      ;
+      echo "::endgroup::"
     shell: bash
 
-  - name: Log the next step action
-    run: >-
-      echo ▷ Installing collection
-      dependencies: ${{ inputs.test-deps }}
-    shell: bash
   - name: Install collection dependencies
     # if: inputs.test-deps
     # yamllint disable rule:line-length
@@ -598,35 +562,26 @@ runs:
       ${{
           inputs.test-deps
           && format(
-              'set -x; ~/.local/bin/ansible-galaxy collection install {0} -p .; set +x',
+              'echo "::group::Installing collection dependencies: {0}"; set -x; ~/.local/bin/ansible-galaxy collection install {0} -p .; set +x; echo "::endgroup::"',
               inputs.test-deps
           )
-          || '>&2 echo Skipping installing the dependencies...'
+          || 'echo "::group::Installing collection dependencies"; >&2 echo Skipping installing the dependencies...; echo "::endgroup::"'
       }}
     # yamllint enable rule:line-length
     shell: bash
 
-  - name: Log the next step action
-    run: >-
-      echo ▷ Running a pre-test
-      command: "'${{ inputs.pre-test-cmd }}'"
-    shell: bash
   - name: Run a pre-test command
     # if: inputs.pre-test-cmd
     # run: ${{ inputs.pre-test-cmd }}
     run: >-
       ${{
           inputs.pre-test-cmd
-          && format('set -x; {0}; set +x', inputs.pre-test-cmd)
-          || '>&2 echo Skipping running the pre test command...'
+          && format('echo "::group::Running pre-test command"; set -x; {0}; set +x; echo "::endgroup::"', inputs.pre-test-cmd)
+          || 'echo "::group::Running pre-test command"; >&2 echo Skipping running the pre test command...; echo "::endgroup::"'
       }}
     shell: bash
     working-directory: ${{ steps.collection-metadata.outputs.checkout-path }}
 
-  - name: Log the next step action
-    run: >-
-      echo ▷ Running ${{ inputs.testing-type }} tests...
-    shell: bash
   - name: Run ${{ inputs.testing-type }} tests
     # yamllint disable rule:line-length
     # NOTE: Theoretically, it's best to have a `--` separator before the
@@ -637,11 +592,15 @@ runs:
     # * https://github.com/ansible-community/ansible-test-gh-action/pull/9#discussion_r748488366
     # * https://github.com/ansible-community/ansible-test-gh-action/issues/8#issuecomment-968505014
     run: >-
+      echo "::group::Running ${{ inputs.testing-type }} tests"
+      ;
       set -x
       ;
       ~/.local/bin/ansible-test ${{ steps.ansible-test-command.outputs.command }}
       ;
       set +x
+      ;
+      echo "::endgroup::"
     # yamllint enable rule:line-length
     shell: bash
     working-directory: ${{ steps.collection-metadata.outputs.checkout-path }}
@@ -665,14 +624,11 @@ runs:
       ) | tee -a "${GITHUB_OUTPUT}"
     shell: bash
 
-  - name: Log the next step action
-    if: steps.ansible-test-command.outputs.has-coverage == 'true'
-    run: >-
-      echo ▷ Generating a coverage report...
-    shell: bash
   - name: Generate coverage report
     if: steps.ansible-test-command.outputs.has-coverage == 'true'
     run: >-
+      echo "::group::Generating coverage report"
+      ;
       set -x
       ;
       ~/.local/bin/ansible-test coverage xml
@@ -681,6 +637,8 @@ runs:
       --group-by version
       ;
       set +x
+      ;
+      echo "::endgroup::"
     shell: bash
     working-directory: ${{ steps.collection-metadata.outputs.checkout-path }}
 
@@ -706,14 +664,11 @@ runs:
       ) | tee -a "${GITHUB_OUTPUT}"
     shell: bash
 
-  - name: Log the next step action
-    if: steps.ansible-test-command.outputs.has-coverage == 'true'
-    run: >-
-      echo ▷ Generating a coverage report only grouped by command...
-    shell: bash
   - name: Generate a coverage report only grouped by command
     if: steps.ansible-test-command.outputs.has-coverage == 'true'
     run: >-
+      echo "::group::Generating coverage report (grouped by command only)"
+      ;
       set -x
       ;
       ~/.local/bin/ansible-test coverage xml
@@ -721,15 +676,11 @@ runs:
       --group-by command
       ;
       set +x
+      ;
+      echo "::endgroup::"
     shell: bash
     working-directory: ${{ steps.collection-metadata.outputs.checkout-path }}
 
-  - name: Log the next step action
-    if: steps.exportable-coverage-files.outputs.paths != ''
-    run: >-
-      echo ▷ Sending the coverage data over to
-      https://codecov.io/gh/${{ github.repository }}...
-    shell: bash
   - name: >-
       Send the coverage data over to
       https://codecov.io/gh/${{ github.repository }}
