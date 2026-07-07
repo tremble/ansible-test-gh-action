@@ -353,7 +353,8 @@ runs:
       has_change_detection = (
           gha_pull_request_branch and gha_pull_request_change_detection
       )
-      print(f'::notice ::DEBUG: has_change_detection = {has_change_detection}')
+      if gha_debug:
+          print(f'::notice ::DEBUG: has_change_detection = {has_change_detection}')
 
       # Determine whether to generate coverage and whether to upload to codecov
       has_coverage = gha_coverage != 'never'
@@ -373,14 +374,15 @@ runs:
               gha_pull_request_branch,
           ])
 
-      print(
-          f'::notice ::DEBUG: has_coverage = {has_coverage} '
-          f'(gha_coverage={gha_coverage})'
-      )
-      print(
-          f'::notice ::DEBUG: upload_coverage_to_codecov = '
-          f'{upload_coverage_to_codecov}'
-      )
+      if gha_debug:
+          print(
+              f'::notice ::DEBUG: has_coverage = {has_coverage} '
+              f'(gha_coverage={gha_coverage})'
+          )
+          print(
+              f'::notice ::DEBUG: upload_coverage_to_codecov = '
+              f'{upload_coverage_to_codecov}'
+          )
 
       if has_coverage:
           command.append('--coverage')
